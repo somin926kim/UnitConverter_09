@@ -2,12 +2,15 @@
 
 import pytest
 
+from validator import ValidationError, validate
+
 
 def test_u_in_01_empty_input():
     # Given: ""
     # When: parse/validate input
-    # Then:
-    pytest.fail("RED: U-IN-01 — empty input → Format error message")
+    # Then: Format error message
+    with pytest.raises(ValidationError, match="Invalid format"):
+        validate("")
 
 
 def test_u_in_02_no_colon():
