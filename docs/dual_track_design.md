@@ -37,6 +37,8 @@ Unit Converter를 **두 개의 Track(레이어)** 으로 분리하여 TDD RED �
 > Track 이름의 알파벳(A, B)은 **레이어 종류**를 뜻하며, **먼저 구현·테스트할 Track**을 의미하지 않는다.  
 > Phase 1 RED는 의존성상 **Track B(Domain)를 먼저** Green으로 만든 뒤 **Track A(Boundary)** 를 통합한다.
 
+**표시/내부 정밀도 SSOT:** Domain `D-CNV-*`는 비율·산술 검증용 **소수 5자리** 고정(예: 8.20210 ft, 2.73403 yard); Boundary/README CLI(`U-OUT-01`, FR-02)는 **소수 1자리 반올림 표시**(README: 8.2 feet, 2.7 yard). *(원문: `prd_test_traceability.md` §1)*
+
 | | Track A — UI / Boundary | Track B — Domain / Logic |
 |--|-------------------------|---------------------------|
 | **레이어 역할** | 파싱 · 검증 · 출력 | 변환 · 등록 · 설정 |
@@ -119,7 +121,7 @@ UnitConverter.py              # CLI 진입점 (얇은 main)
 | **D-CNV-01** | `to_meter` | 1 feet | 0.3048 m (±ε) | REQ-BIZ-01, REQ-FUNC-03 |
 | **D-CNV-02** | `convert_all` | 2.5 m | 8.20210 ft (소수 5자리) | REQ-BIZ-01, REQ-FUNC-02 |
 | **D-CNV-03** | `convert_all` | 1 feet | yard 값 = meter 경유 결과와 일치 | REQ-BIZ-03 |
-| **D-CNV-04** | `convert_all` | 2.5 m | 2.73403 yard (README 예시) | REQ-BIZ-02, REQ-FUNC-02 |
+| **D-CNV-04** | `convert_all` | 2.5 m | 2.73403 yard (소수 5자리; 표시는 SSOT 1자리) | REQ-BIZ-02, REQ-FUNC-02 |
 
 #### Track A — Boundary
 
@@ -130,7 +132,7 @@ UnitConverter.py              # CLI 진입점 (얇은 main)
 | **U-IN-03** | `meter:-1` | Reject negative values | REQ-VAL-01 |
 | **U-IN-04** | `mile:1` | Unknown unit error | REQ-VAL-03 |
 | **U-IN-05** | `:2.5` 또는 `meter:` | Format error (빈 토큰) | REQ-VAL-02 |
-| **U-OUT-01** | `meter:2.5` | 출력 ≥ 3줄 (meter/feet/yard) | REQ-FUNC-01, REQ-FUNC-02 |
+| **U-OUT-01** | `meter:2.5` | stdout **2줄** (`feet`·`yard`만, README `2.5 meter = …`·소수 1자리); **입력 meter 단독 행·meter→meter 줄 없음** | REQ-FUNC-01, REQ-FUNC-02 |
 
 ---
 
@@ -216,7 +218,7 @@ Phase 2 — Extension
 | REQ ID | 설명 | Test ID |
 |--------|------|---------|
 | REQ-FUNC-01 | unit:value 입력 | U-OUT-01 |
-| REQ-FUNC-02 | 전 단위 변환 출력 | U-OUT-01, D-CNV-02, D-CNV-04 |
+| REQ-FUNC-02 | 다른 지원 단위 변환 출력 (입력 단위 제외) | U-OUT-01, D-CNV-02, D-CNV-04 |
 | REQ-FUNC-03 | meter/feet/yard 지원 | D-CNV-01, D-CNV-03, U-OUT-01 |
 | REQ-FUNC-04 | OCP — 변경 최소화 | D-REG-01, D-REG-02 |
 | REQ-BIZ-01 | 1 m = 3.28084 ft | D-CNV-01, D-CNV-02 |

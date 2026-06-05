@@ -24,6 +24,8 @@
 > **Track** = 어디를 테스트할지 (경계 vs 도메인)  
 > **Phase** = 언제 구현할지 (Core → Extension)
 
+**표시/내부 정밀도 SSOT:** Domain `D-CNV-*`는 비율·산술 검증용 **소수 5자리** 고정(예: 8.20210 ft, 2.73403 yard); Boundary/README CLI(`U-OUT-01`, FR-02)는 **소수 1자리 반올림 표시**(README: 8.2 feet, 2.7 yard).
+
 ---
 
 ## 2. Dual-Track RED 설계표
@@ -37,7 +39,7 @@
 | **D-CNV-01** | `to_meter` | 1 feet → 0.3048 m (±ε) | REQ-BIZ-01, REQ-FUNC-03 | 1 |
 | **D-CNV-02** | `convert_all` | 2.5 m → 8.20210 ft (소수 5자리) | REQ-BIZ-01, REQ-FUNC-02 | 1 |
 | **D-CNV-03** | `convert_all` | feet → yard, meter 경유 일관성 | REQ-BIZ-03 | 1 |
-| **D-CNV-04** | `convert_all` | 2.5 m → 2.73403 yard (README 예시) | REQ-BIZ-02, REQ-FUNC-02 | 1 |
+| **D-CNV-04** | `convert_all` | 2.5 m → 2.73403 yard (소수 5자리; 표시는 SSOT 1자리) | REQ-BIZ-02, REQ-FUNC-02 | 1 |
 
 #### Track A — Boundary
 
@@ -48,7 +50,7 @@
 | **U-IN-03** | `meter:-1` | Reject negative values | REQ-VAL-01 | 1 |
 | **U-IN-04** | `mile:1` | Unknown unit error | REQ-VAL-03 | 1 |
 | **U-IN-05** | `:2.5` 또는 `meter:` | Format error | REQ-VAL-02 | 1 |
-| **U-OUT-01** | `meter:2.5` | 출력 ≥ 3줄 (meter/feet/yard 골격) | REQ-FUNC-01, REQ-FUNC-02 | 1 |
+| **U-OUT-01** | `meter:2.5` | stdout **2줄** (`feet`·`yard`만, README `2.5 meter = …` 형식·소수 1자리); **입력 meter 단독 행·meter→meter 줄 없음** (FR-02「다른」지원 단위) | REQ-FUNC-01, REQ-FUNC-02 | 1 |
 
 ### Phase 2 — Extension (5 TC)
 
@@ -89,7 +91,7 @@
 
 | README 요구 | TC | 비고 |
 |-------------|-----|------|
-| yard 변환 (1.09361) | D-CNV-04 | README 예시 2.7 yard |
+| yard 변환 (1.09361) | D-CNV-04, U-OUT-01 | Domain 2.73403 yard / CLI 표시 2.7 yard (SSOT §1) |
 | unknown unit 검증 | U-IN-04 | 품질 요구사항 충족 |
 | YAML 설정 | — | Green 후 `D-CFG-03` 추가 가능 |
 | CSV / 표 출력 | U-FMT-01 | Strategy 1종 Green = OCP 입증, 나머지 데모 |

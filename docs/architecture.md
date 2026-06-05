@@ -205,6 +205,8 @@ def main():
 
 ## 5. FR / NFR 정의 및 매핑
 
+**표시/내부 정밀도 SSOT:** Domain `D-CNV-*`는 비율·산술 검증용 **소수 5자리** 고정(예: 8.20210 ft, 2.73403 yard); Boundary/README CLI(`U-OUT-01`, FR-02)는 **소수 1자리 반올림 표시**(README: 8.2 feet, 2.7 yard). *(원문: `prd_test_traceability.md` §1)*
+
 ### 5.1 Functional Requirements (FR)
 
 README **기본 요구사항 · 비즈니스 로직 · 추가 요구사항**에서 도출.
@@ -212,7 +214,7 @@ README **기본 요구사항 · 비즈니스 로직 · 추가 요구사항**에�
 | FR ID | 요구사항 | README 출처 | 담당 모듈 | Test ID |
 |-------|----------|-------------|-----------|---------|
 | **FR-01** | `unit:value` 형식 입력 수신 | 기본 #1 | `InputParser` | U-OUT-01 |
-| **FR-02** | 입력값을 **모든 지원 단위**로 변환 출력 | 기본 #1, Overview | `UnitConverter.convert_all`, `ConversionService` | U-OUT-01, D-CNV-02, D-CNV-04 |
+| **FR-02** | 입력값을 **다른 모든 지원 단위**로 변환 출력 (입력 단위 자기변환·단독 행 없음; CLI 소수 1자리) | 기본 #1, Overview | `UnitConverter.convert_all`, `ConversionService`, `OutputFormatter` | U-OUT-01, D-CNV-02, D-CNV-04 |
 | **FR-03** | meter / feet / yard 지원 | 기본 #2 | `UnitRegistry` (기본 3단위) | D-CNV-01, D-CNV-03, U-OUT-01 |
 | **FR-04** | 단위 추가 시 기존 코드 변경 최소화 | 기본 #3, Overview | `UnitRegistry.register()` | D-REG-01, D-REG-02 |
 | **FR-05** | `1 m = 3.28084 ft` 변환 | 비즈니스 로직 | `UnitConverter` + Registry 비율 | D-CNV-01, D-CNV-02 |

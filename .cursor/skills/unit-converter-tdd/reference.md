@@ -2,6 +2,8 @@
 
 > SSOT: `docs/prd_test_traceability.md` · `docs/dual_track_design.md`
 
+**표시/내부 정밀도 SSOT:** Domain `D-CNV-*` 소수 **5자리**; CLI `U-OUT-01`·FR-02 소수 **1자리** (README: 8.2 feet, 2.7 yard).
+
 ## Track · Phase
 
 | Track | Layer | TC | RED 순서 |
@@ -22,7 +24,7 @@
 | U-IN-03 | `meter:-1` → Reject negative |
 | U-IN-04 | `mile:1` → Unknown unit |
 | U-IN-05 | `:2.5` / `meter:` → Format error |
-| U-OUT-01 | `meter:2.5` → 출력 ≥ 3줄 |
+| U-OUT-01 | `meter:2.5` → stdout 2줄(feet·yard, README 형식); meter 단독/자기변환 줄 없음 |
 
 ## Phase 2 — Extension (5 TC)
 
