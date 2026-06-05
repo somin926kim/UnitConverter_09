@@ -52,10 +52,15 @@ def test_u_in_05_empty_token(input_str):
         validate(input_str)
 
 
+from UnitConverter import process
+
+
 def test_u_out_01_meter_stdout():
     # Given: "meter:2.5"
     # When: run CLI (UnitConverter.py) with input
+    lines = process("meter:2.5")
     # Then: stdout 2줄 (feet·yard만, README "2.5 meter = …"·소수 1자리); meter 단독/자기변환 줄 없음
-    pytest.fail(
-        "RED: U-OUT-01 — meter:2.5 → stdout 2줄(feet·yard, README 형식·소수 1자리); meter 줄 없음"
-    )
+    assert lines == [
+        "2.5 meter = 8.2 feet",
+        "2.5 meter = 2.7 yard",
+    ]

@@ -1,35 +1,29 @@
+from converter import convert_all
+from validator import ValidationError, validate
+
+OUTPUT_UNITS = ("feet", "yard", "meter")
+
+
+def process(input_str: str) -> list[str]:
+    unit, value = validate(input_str)
+    results = convert_all(unit, value)
+    lines = []
+    for target_unit in OUTPUT_UNITS:
+        if target_unit in results:
+            converted = results[target_unit]
+            lines.append(f"{value} {unit} = {converted:.1f} {target_unit}")
+    return lines
+
+
 def main():
     input_str = input("Insert value for converting (ex: meter:2.5): ")
-
-    if ':' not in input_str:
-        print("Invalid format. Use unit:value (ex: meter:2.5)")
-        return
-
-    unit, value_str = input_str.split(':', 1)
-
     try:
-        value = float(value_str)
-    except ValueError:
-        print(f"Invalid number: {value_str}")
+        lines = process(input_str)
+    except ValidationError as e:
+        print(e.args[0])
         return
-
-    if unit == "meter":
-        meter_value = value
-    elif unit == "feet":
-        meter_value = value / 3.28084
-    elif unit == "yard":
-        meter_value = value / 1.09361
-    else:
-        print(f"Unknown unit: {unit}")
-        return
-
-    in_meters = meter_value
-    in_feet = meter_value * 3.28084
-    in_yards = meter_value * 1.09361
-
-    print(f"{value} {unit} = {in_meters} meter")
-    print(f"{value} {unit} = {in_feet} feet")
-    print(f"{value} {unit} = {in_yards} yard")
+    for line in lines:
+        print(line)
 
 
 if __name__ == "__main__":
