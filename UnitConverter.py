@@ -1,18 +1,11 @@
-from converter import convert_all
-from validator import ValidationError, validate
+from unit_converter.application.service import build_default_service
+from validator import ValidationError
 
-OUTPUT_UNITS = ("feet", "yard", "meter")
+_service = build_default_service()
 
 
 def process(input_str: str) -> list[str]:
-    unit, value = validate(input_str)
-    results = convert_all(unit, value)
-    lines = []
-    for target_unit in OUTPUT_UNITS:
-        if target_unit in results:
-            converted = results[target_unit]
-            lines.append(f"{value} {unit} = {converted:.1f} {target_unit}")
-    return lines
+    return _service.run(input_str)
 
 
 def main():
