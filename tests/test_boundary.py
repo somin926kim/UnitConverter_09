@@ -1,4 +1,4 @@
-"""Track A — UI / Boundary (Phase 1: U-IN-01 ~ U-IN-05)."""
+"""Track A — UI / Boundary (Phase 1: U-IN-01 ~ U-IN-05, U-OUT-01)."""
 
 import pytest
 
@@ -36,3 +36,12 @@ def test_u_in_05_empty_token():
     # When: parse/validate input
     # Then:
     pytest.fail("RED: U-IN-05 — :2.5 / meter: → Format error (빈 토큰)")
+
+
+def test_u_out_01_meter_stdout():
+    # Given: "meter:2.5"
+    # When: run CLI (UnitConverter.py) with input
+    # Then: stdout 2줄 (feet·yard만, README "2.5 meter = …"·소수 1자리); meter 단독/자기변환 줄 없음
+    pytest.fail(
+        "RED: U-OUT-01 — meter:2.5 → stdout 2줄(feet·yard, README 형식·소수 1자리); meter 줄 없음"
+    )
