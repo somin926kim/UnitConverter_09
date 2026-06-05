@@ -1,0 +1,33 @@
+---
+description: Unit Converter REFACTOR — OCP/SRP 패키지 구조 (SPEC 목표)
+globs: unit_converter/**/*.py
+alwaysApply: false
+---
+
+# REFACTOR 목표 구조 (OCP / SRP)
+
+REFACTOR 전까지 `unit_converter/` 패키지를 **만들지 않는다.** 생성 시 `docs/architecture.md` §3 준수.
+
+```
+unit_converter/
+  application/   # Track A — parser, validator, formatter, service
+  domain/        # Track B — converter, registry, models, exceptions
+  infrastructure/  # config_loader
+```
+
+## SRP
+
+- `Converter` — 변환만 (Phase 2에서도 본체 무변경)
+- `UnitRegistry` — 등록·조회
+- `InputParser` / `InputValidator` — 파싱·검증 분리
+- `OutputFormatter` — 출력 Strategy
+
+## OCP 확장 지점
+
+- 단위: `registry.register(name, ratio_to_meter)`
+- 포맷: `OutputFormatter` 구현체 추가
+- 설정: `ConfigLoader.load()` → Registry 주입
+
+## 의존성
+
+`domain/` ← `application/`, `infrastructure/` (domain은 상위 레이어에 의존 금지)

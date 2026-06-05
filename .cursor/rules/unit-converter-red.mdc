@@ -1,0 +1,36 @@
+---
+description: Unit Converter RED 단계 — tests/ only, pytest.fail
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# RED 단계 금지 규칙
+
+- **RED 단계에서 구현 코드 작성 금지**
+- **`pytest.fail("RED: ...")` 허용**
+- **`skip` / `xfail` 금지**
+- **1 RED 묶음 = 1 커밋**
+
+## 금지
+
+| 금지 | 대상 |
+|------|------|
+| 프로덕션 구현 | `unit_converter/`, `config/` 생성·수정 |
+| 레거시 리팩터 | `UnitConverter.py` (GREEN 전) |
+| RED 우회 | `pytest.skip`, `pytest.mark.xfail`, 통과용 더미 assert |
+| Domain Mock | Track B(`D-*`) — `@patch` converter/registry 금지 |
+
+## 허용 (tests/ 만)
+
+```python
+import pytest
+
+def test_d_cnv_01_to_meter_feet():
+    pytest.fail("RED: D-CNV-01 — 1 feet → 0.3048 m (±ε)")
+```
+
+## RED 순서
+
+`D-CNV-01` → … → `D-CNV-04` → `U-IN-01` → … → `U-OUT-01` → (Phase 2) `D-CFG-*` → `D-REG-*` → `U-FMT-01`
+
+상세: `docs/prd_test_traceability.md` · `.cursor/skills/unit-converter-tdd/reference.md`

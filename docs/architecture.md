@@ -1,0 +1,449 @@
+# Architecture — 목표 패키지 구조 (SPEC)
+
+> **단계:** SPEC (설계만)  
+> **적용 시점:** RED(테스트만) → GREEN → **REFACTOR**(본 문서의 패키지 구조)  
+> **기준 문서:** `README.md`  
+> **관련 SPEC:** `spec_analysis.md`, `prd_test_traceability.md`, `dual_track_design.md`  
+> **작성 일자:** 2026-06-05
+
+---
+
+## 1. 문서 목적
+
+본 문서는 **REFACTOR 단계에서 적용할 목표 Python 패키지 구조**와 **PRD FR/NFR 매핑**을 정의한다.  
+현재 레거시 `UnitConverter.py`(단일 `main()`)를 OCP/SRP를 만족하는 구조로 전환하기 위한 **설계 명세**이다.
+
+| 개발 단계 | 본 문서와의 관계 | 프로덕션 코드 (`unit_converter/`) | 테스트 코드 |
+|-----------|------------------|-----------------------------------|-------------|
+| **SPEC** *(현재)* | 구조·FR/NFR·규칙 **문서화만** | ❌ 작성 금지 | ❌ 작성 금지 |
+| **RED** | §12 규칙에 따라 TC만 추가 | ❌ **구현 금지** | ✅ `pytest.fail("RED: ...")` |
+| **GREEN** | 최소 구현으로 TC 통과 | ✅ 최소 구현 허용 | ✅ assert 통과 |
+| **REFACTOR** | §3~§8 패키지 구조 **적용** | ✅ OCP/SRP 구조로 이전 | ✅ 유지·회귀 |
+
+| 현재 (AS-IS) | 목표 (TO-BE) |
+|--------------|--------------|
+| 1파일 · 37줄 · God Function | 레이어 분리 · 패키지화 |
+| if/elif 단위 분기 | Registry + Strategy |
+| 하드코딩 비율 | Config 외부화 |
+| 테스트 없음 | Dual-Track TC 15개 |
+
+---
+
+## 2. 설계 원칙
+
+### 2.1 SRP (Single Responsibility Principle)
+
+각 모듈·클래스는 **하나의 변경 이유**만 갖는다.
+
+| 모듈 | 단일 책임 | 변경 이유 |
+|------|-----------|-----------|
+| `Parser` | `unit:value` 문자열 → 구조체 | 입력 형식 규칙 변경 |
+| `Validator` | 파싱 결과 유효성 검사 | 검증 정책 변경 |
+| `Converter` | 기준단위(meter) 경유 변환 | *(변환 알고리즘 고정 — Phase 2에서도 무변경)* |
+| `UnitRegistry` | 단위·비율 등록·조회 | 단위 추가/등록 방식 |
+| `ConfigLoader` | 설정 파일 → Registry 주입 | JSON/YAML 포맷 |
+| `OutputFormatter` | 변환 결과 → 문자열 | 출력 포맷 추가 |
+| `ConversionService` | 유스케이스 오케스트레이션 | CLI 흐름 변경 |
+| `UnitConverter.py` | CLI 진입·I/O | 실행 방식만 |
+
+### 2.2 OCP (Open-Closed Principle)
+
+**확장에는 열려 있고, 수정에는 닫혀 있다.**
+
+| 확장 시나리오 | OCP 대응 | 수정 없이 유지되는 모듈 |
+|---------------|----------|-------------------------|
+| 새 단위 추가 (cubit) | `UnitRegistry.register()` | `Converter` |
+| 새 출력 포맷 (CSV) | `OutputFormatter` 구현체 추가 | `Converter`, `Parser` |
+| 설정 소스 변경 (YAML) | `ConfigLoader` 구현체 추가 | `Converter`, `Registry` API |
+| 새 검증 규칙 | `Validator` 확장 | `Converter` |
+
+**OCP 핵심 확장 지점**
+
+```
+UnitRegistry.register(name, ratio_to_meter)   # 단위 확장
+OutputFormatter (Protocol)                     # 포맷 확장
+ConfigLoader.load(path) → UnitRegistry         # 설정 소스 확장
+```
+
+---
+
+## 3. 목표 패키지 구조
+
+```
+UnitConverter_09/
+│
+├── UnitConverter.py                 # CLI 진입점 (README 호환, 얇은 main)
+│
+├── unit_converter/                  # 메인 패키지
+│   ├── __init__.py
+│   │
+│   ├── application/                 # Track A — UI / Boundary
+│   │   ├── __init__.py
+│   │   ├── parser.py                # InputParser
+│   │   ├── validator.py             # InputValidator
+│   │   ├── formatter.py             # OutputFormatter (Strategy)
+│   │   └── service.py               # ConversionService (오케스트레이션)
+│   │
+│   ├── domain/                      # Track B — Domain / Logic
+│   │   ├── __init__.py
+│   │   ├── models.py                # Unit, ParsedInput, ConversionResult
+│   │   ├── converter.py             # UnitConverter (변환만)
+│   │   ├── registry.py              # UnitRegistry
+│   │   └── exceptions.py            # DomainError, UnknownUnitError, ...
+│   │
+│   └── infrastructure/              # Track B — 외부 연동
+│       ├── __init__.py
+│       └── config_loader.py         # JsonConfigLoader, YamlConfigLoader
+│
+├── config/
+│   └── units.json                   # 기본 3단위 비율
+│
+└── tests/
+    ├── test_domain.py               # D-* TC (Track B)
+    └── test_boundary.py             # U-* TC (Track A)
+```
+
+### 3.1 레이어 의존성
+
+```
+UnitConverter.py
+       │
+       ▼
+application/          ← Track A (Boundary)
+  service.py ──────────────┐
+  parser.py                │
+  validator.py             │ depends on
+  formatter.py             ▼
+                    domain/              ← Track B (Domain)
+                      converter.py
+                      registry.py
+                           ▲
+                           │ depends on
+                    infrastructure/
+                      config_loader.py
+```
+
+**규칙**
+
+- `domain/`은 `application/`, `infrastructure/`에 **의존하지 않음**
+- `application/`은 `domain/`을 **주입**받아 사용
+- `infrastructure/`는 `domain/`의 `UnitRegistry`에 데이터 **주입**
+- `UnitConverter.py`는 `application.service`만 호출
+
+---
+
+## 4. 모듈 상세 (REFACTOR 목표)
+
+### 4.1 Domain — `unit_converter/domain/`
+
+| 파일 | 클래스 / 함수 | 책임 | Phase |
+|------|---------------|------|-------|
+| `models.py` | `ParsedInput`, `ConversionResult`, `Unit` | 값 객체 | 1 |
+| `registry.py` | `UnitRegistry` | 단위 등록·조회·`ratio_to_meter` 제공 | 1 |
+| `converter.py` | `UnitConverter` | `to_meter()`, `convert_all()` | 1 |
+| `exceptions.py` | `UnknownUnitError`, `ConfigError` | 도메인 예외 | 1·2 |
+
+```python
+# converter.py — REFACTOR 목표 시그니처 (설계만)
+class UnitConverter:
+    def __init__(self, registry: UnitRegistry): ...
+    def to_meter(self, value: float, unit: str) -> float: ...
+    def convert_all(self, value: float, unit: str) -> list[ConversionResult]: ...
+```
+
+```python
+# registry.py — REFACTOR 목표 시그니처 (설계만)
+class UnitRegistry:
+    def register(self, name: str, ratio_to_meter: float) -> None: ...
+    def get(self, name: str) -> Unit: ...
+    def all_units(self) -> list[str]: ...
+```
+
+### 4.2 Application — `unit_converter/application/`
+
+| 파일 | 클래스 | 책임 | Phase |
+|------|--------|------|-------|
+| `parser.py` | `InputParser` | `"meter:2.5"` → `ParsedInput` | 1 |
+| `validator.py` | `InputValidator` | 형식·음수·단위 존재 검증 | 1 |
+| `formatter.py` | `OutputFormatter` (Protocol) | JSON / CSV / Table Strategy | 2 |
+| `service.py` | `ConversionService` | parse → validate → convert → format | 1 |
+
+```python
+# formatter.py — OCP Strategy (설계만)
+class OutputFormatter(Protocol):
+    def format(self, results: list[ConversionResult]) -> str: ...
+
+class JsonFormatter(OutputFormatter): ...
+class CsvFormatter(OutputFormatter): ...
+class TableFormatter(OutputFormatter): ...
+```
+
+### 4.3 Infrastructure — `unit_converter/infrastructure/`
+
+| 파일 | 클래스 | 책임 | Phase |
+|------|--------|------|-------|
+| `config_loader.py` | `JsonConfigLoader` | JSON → `UnitRegistry` | 2 |
+| `config_loader.py` | `YamlConfigLoader` | YAML → `UnitRegistry` *(선택)* | 2 |
+
+### 4.4 진입점 — `UnitConverter.py`
+
+```python
+# REFACTOR 목표 — 얇은 main (설계만)
+def main():
+    registry = build_registry()          # ConfigLoader or default
+    service = ConversionService(
+        parser=InputParser(),
+        validator=InputValidator(registry),
+        converter=UnitConverter(registry),
+        formatter=get_formatter(args),   # Strategy
+    )
+    raw = input("Insert value for converting (ex: meter:2.5): ")
+    print(service.run(raw))
+```
+
+---
+
+## 5. FR / NFR 정의 및 매핑
+
+**표시/내부 정밀도 SSOT:** Domain `D-CNV-*`는 비율·산술 검증용 **소수 5자리** 고정(예: 8.20210 ft, 2.73403 yard); Boundary/README CLI(`U-OUT-01`, FR-02)는 **소수 1자리 반올림 표시**(README: 8.2 feet, 2.7 yard). *(원문: `prd_test_traceability.md` §1)*
+
+### 5.1 Functional Requirements (FR)
+
+README **기본 요구사항 · 비즈니스 로직 · 추가 요구사항**에서 도출.
+
+| FR ID | 요구사항 | README 출처 | 담당 모듈 | Test ID |
+|-------|----------|-------------|-----------|---------|
+| **FR-01** | `unit:value` 형식 입력 수신 | 기본 #1 | `InputParser` | U-OUT-01 |
+| **FR-02** | 입력값을 **다른 모든 지원 단위**로 변환 출력 (입력 단위 자기변환·단독 행 없음; CLI 소수 1자리) | 기본 #1, Overview | `UnitConverter.convert_all`, `ConversionService`, `OutputFormatter` | U-OUT-01, D-CNV-02, D-CNV-04 |
+| **FR-03** | meter / feet / yard 지원 | 기본 #2 | `UnitRegistry` (기본 3단위) | D-CNV-01, D-CNV-03, U-OUT-01 |
+| **FR-04** | 단위 추가 시 기존 코드 변경 최소화 | 기본 #3, Overview | `UnitRegistry.register()` | D-REG-01, D-REG-02 |
+| **FR-05** | `1 m = 3.28084 ft` 변환 | 비즈니스 로직 | `UnitConverter` + Registry 비율 | D-CNV-01, D-CNV-02 |
+| **FR-06** | `1 m = 1.09361 yard` 변환 | 비즈니스 로직 | `UnitConverter` + Registry 비율 | D-CNV-04 |
+| **FR-07** | feet ↔ yard는 meter 경유 | 비즈니스 로직 | `UnitConverter.to_meter()` | D-CNV-03 |
+| **FR-08** | 단위 변환 정확성 테스트 검증 | 기본 #4, Overview | `tests/test_domain.py` | D-CNV-* |
+| **FR-09** | 변환 비율 JSON/YAML 외부 설정 | 추가 — 설정 외부화 | `JsonConfigLoader` | D-CFG-01, D-CFG-02 |
+| **FR-10** | 동적 단위·비율 등록 (`cubit`) | 추가 — 동적 등록 | `UnitRegistry.register()` | D-REG-01, D-REG-02 |
+| **FR-11** | JSON / CSV / 표 출력 선택 | 추가 — 출력 포맷 | `OutputFormatter` Strategy | U-FMT-01 |
+
+### 5.2 Non-Functional Requirements (NFR)
+
+README **품질 요구사항 · Overview 설계 목표**에서 도출.
+
+| NFR ID | 요구사항 | README 출처 | 설계 대응 | 검증 |
+|--------|----------|-------------|-----------|------|
+| **NFR-01** | OCP — 확장에 열림, 수정에 닫힘 | 품질 #1 | Registry / Formatter / ConfigLoader Strategy | D-REG-01, U-FMT-01, Phase 2 Converter 무변경 |
+| **NFR-02** | SRP — 책임별 클래스 구성 | 품질 #2 | §3 패키지 레이어 분리 | 모듈 경계, Track A/B 분리 |
+| **NFR-03** | 음수 입력 거부 | 품질 #3 | `InputValidator.validate()` | U-IN-03 |
+| **NFR-04** | 잘못된 형식 거부 | 품질 #3 | `InputParser` + `InputValidator` | U-IN-01, U-IN-02, U-IN-05 |
+| **NFR-05** | 없는 단위 거부 | 품질 #3 | `InputValidator` + `UnknownUnitError` | U-IN-04 |
+| **NFR-06** | 테스트 가능성 (Domain mock-free) | Overview #3, 기본 #4 | Domain ↔ Application 분리 | D-CNV-* mock 없이 Green |
+| **NFR-07** | 설정 변경 시 코드 재배포 불필요 | 추가 — 설정 외부화 | `config/units.json` | D-CFG-02 |
+| **NFR-08** | README CLI 호환 (`python UnitConverter.py`) | 가상환경 및 실행 | `UnitConverter.py` 얇은 진입점 유지 | U-OUT-01 |
+
+---
+
+## 6. FR/NFR → 패키지 매핑 매트릭스
+
+| 패키지 / 모듈 | FR | NFR |
+|---------------|-----|-----|
+| `domain/converter.py` | FR-02, FR-05, FR-06, FR-07 | NFR-01 (닫힘), NFR-06 |
+| `domain/registry.py` | FR-03, FR-04, FR-10 | NFR-01 (확장 지점) |
+| `domain/models.py` | FR-01, FR-02 | NFR-02 |
+| `domain/exceptions.py` | — | NFR-04, NFR-05 |
+| `application/parser.py` | FR-01 | NFR-04, NFR-02 |
+| `application/validator.py` | — | NFR-03, NFR-04, NFR-05 |
+| `application/formatter.py` | FR-11 | NFR-01 (확장 지점) |
+| `application/service.py` | FR-02 | NFR-02, NFR-08 |
+| `infrastructure/config_loader.py` | FR-09 | NFR-07, NFR-01 |
+| `config/units.json` | FR-09 | NFR-07 |
+| `UnitConverter.py` | — | NFR-08 |
+| `tests/test_domain.py` | FR-08 | NFR-06 |
+| `tests/test_boundary.py` | FR-08 | NFR-03~05 |
+
+---
+
+## 7. Dual Track ↔ 패키지 매핑
+
+| Track | 레이어 | 패키지 | RED 순서 |
+|-------|--------|--------|----------|
+| **B** | Domain / Logic | `domain/`, `infrastructure/` | **1번째** |
+| **A** | UI / Boundary | `application/`, `UnitConverter.py` | **2번째** |
+
+> Track A/B = 레이어 이름 · RED 실행 = Domain(B) → Boundary(A)  
+> (`dual_track_design.md` §1 참고)
+
+---
+
+## 8. 개발 단계별 적용 순서
+
+### 8.1 RED → GREEN → REFACTOR (전체 흐름)
+
+```
+SPEC (현재)
+  └─ docs/architecture.md — 구조·FR/NFR·RED 규칙 확정
+       │
+RED
+  └─ tests/ 만 추가 · pytest.fail · 1 묶음 = 1 커밋
+       │
+GREEN
+  └─ 최소 구현 (레거시 수정 또는 임시 모듈) · TC 통과
+       │
+REFACTOR
+  └─ §3 패키지 구조로 이전 · Converter 무변경 유지 (OCP)
+```
+
+### 8.2 REFACTOR 단계 — 패키지 적용 순서
+
+SPEC·RED 단계에서는 **`unit_converter/` 패키지를 만들지 않는다.** REFACTOR 시 아래 순서로 적용.
+
+```
+Step 1  domain/models.py, registry.py, converter.py, exceptions.py
+Step 2  application/parser.py, validator.py, service.py
+Step 3  UnitConverter.py → 얇은 main으로 교체
+        ── Gate 1 (Phase 1 TC 10 Green) ──
+Step 4  infrastructure/config_loader.py + config/units.json
+Step 5  domain/registry.py register API 확장
+Step 6  application/formatter.py (JsonFormatter → Csv/Table)
+        ── Gate 2 (Phase 2 TC 15 Green) ──
+```
+
+### 8.3 레거시 → 목표 마이그레이션
+
+| 레거시 (`UnitConverter.py`) | REFACTOR 후 |
+|-----------------------------|-------------|
+| `input()` | `UnitConverter.py` (진입점만) |
+| `split(':', 1)` | `InputParser.parse()` |
+| `float()` + try/except | `InputParser` + `InputValidator` |
+| `if unit == "meter"` 분기 | `UnitRegistry.get()` |
+| `value / 3.28084` | `UnitConverter.to_meter()` |
+| `meter_value * 3.28084` | `UnitConverter.convert_all()` |
+| `print(f"...")` | `OutputFormatter.format()` |
+
+---
+
+## 9. 설정 파일 스키마 (목표)
+
+```json
+{
+  "base_unit": "meter",
+  "units": {
+    "meter": 1.0,
+    "feet": 3.28084,
+    "yard": 1.09361
+  }
+}
+```
+
+- `ratio` = **1 base_unit 당 해당 단위 값** (README 비즈니스 로직과 동일)
+- `ConfigLoader`가 Registry에 주입 · 코드 내 매직 넘버 제거 (FR-09, NFR-07)
+
+---
+
+## 10. SPEC ↔ REFACTOR 체크리스트
+
+REFACTOR 완료 시 아래를 확인한다.
+
+| # | 항목 | FR/NFR |
+|---|------|--------|
+| 1 | `domain/`이 `application/`에 의존하지 않음 | NFR-02 |
+| 2 | 새 Formatter 추가 시 `Converter` 무변경 | NFR-01 |
+| 3 | `register("cubit", 0.4572)` 후 변환 동작 | FR-10 |
+| 4 | `units.json` 수정만으로 비율 반영 | FR-09, NFR-07 |
+| 5 | Domain TC mock-free Green | NFR-06 |
+| 6 | Phase 1 TC 10 + Phase 2 TC 5 Green | FR-08 |
+| 7 | `python UnitConverter.py` 실행 유지 | NFR-08 |
+
+---
+
+## 11. 참고 문서
+
+| 문서 / 경로 | 역할 |
+|-------------|------|
+| `docs/spec_analysis.md` | AS-IS Gap · 레거시 스멜 |
+| `docs/prd_test_traceability.md` | REQ ↔ Test ID |
+| `docs/dual_track_design.md` | Dual Track RED · Gate |
+| `docs/architecture.md` | **본 문서** — REFACTOR 목표 패키지 · FR/NFR |
+| `.cursor/rules/` | SPEC/RED/REFACTOR Agent 규칙 |
+| `.cursor/skills/unit-converter-tdd/` | TDD 절차 SSOT |
+| `.cursor/commands/` | `/tdd-red`, `/tdd-green`, `/spec-only` |
+
+---
+
+## 12. RED 단계 규칙
+
+REFACTOR 이전 RED 단계에서 **반드시** 지킬 규칙이다.  
+**Agent 실행 SSOT:** `.cursor/rules/unit-converter-red.mdc` · `/tdd-red` · `.cursor/skills/unit-converter-tdd/`
+
+### 12.1 금지·허용
+
+| 규칙 | 내용 |
+|------|------|
+| ❌ **구현 코드 작성 금지** | `unit_converter/` 패키지, `Converter` 본체, `Parser` 로직 등 **프로덕션 구현 불가** |
+| ✅ **`pytest.fail` 허용** | 실패를 명시적으로 표현 |
+| ❌ **`skip` / `xfail` 금지** | RED를 우회하지 않음 |
+| ✅ **1 RED 묶음 = 1 커밋** | TC 단위 또는 논리 묶음 단위로 커밋 분리 |
+
+### 12.2 RED 테스트 작성 예시 *(RED 단계에서만 허용되는 코드)*
+
+```python
+# tests/test_domain.py — RED 단계 (구현 없음)
+import pytest
+
+def test_d_cnv_01_to_meter_feet():
+    pytest.fail("RED: D-CNV-01 — 1 feet → 0.3048 m (±ε)")
+```
+
+```python
+# tests/test_boundary.py — RED 단계
+import pytest
+
+def test_u_in_03_reject_negative():
+    pytest.fail("RED: U-IN-03 — meter:-1 must be rejected")
+```
+
+> GREEN 단계에서 위 `pytest.fail`을 **실제 assert**로 교체하고, 그때 최소 구현을 추가한다.
+
+### 12.3 RED 묶음 ↔ 커밋 ↔ 패키지 (목표)
+
+Track B(Domain)를 RED 실행 순서상 **선행**한다. (`dual_track_design.md` §1)
+
+| RED 묶음 | 커밋 예시 메시지 | Test ID | 목표 모듈 (REFACTOR 시) | Phase |
+|----------|------------------|---------|-------------------------|-------|
+| RED-01 | `[RED] D-CNV-01 to_meter` | D-CNV-01 | `domain/converter.py` | 1 |
+| RED-02 | `[RED] D-CNV-02 convert_all feet` | D-CNV-02 | `domain/converter.py` | 1 |
+| RED-03 | `[RED] D-CNV-03 feet-yard consistency` | D-CNV-03 | `domain/converter.py` | 1 |
+| RED-04 | `[RED] D-CNV-04 convert_all yard` | D-CNV-04 | `domain/converter.py` | 1 |
+| RED-05 | `[RED] U-IN-01 empty input` | U-IN-01 | `application/validator.py` | 1 |
+| RED-06 | `[RED] U-IN-02~05 validation` | U-IN-02~05 | `application/parser.py`, `validator.py` | 1 |
+| RED-07 | `[RED] U-OUT-01 output skeleton` | U-OUT-01 | `application/service.py` | 1 |
+| RED-08 | `[RED] D-CFG-01 corrupted json` | D-CFG-01 | `infrastructure/config_loader.py` | 2 |
+| RED-09 | `[RED] D-CFG-02 load units.json` | D-CFG-02 | `infrastructure/config_loader.py` | 2 |
+| RED-10 | `[RED] D-REG-01 register cubit` | D-REG-01 | `domain/registry.py` | 2 |
+| RED-11 | `[RED] D-REG-02 cubit cross-convert` | D-REG-02 | `domain/registry.py` | 2 |
+| RED-12 | `[RED] U-FMT-01 json output` | U-FMT-01 | `application/formatter.py` | 2 |
+
+**묶음 통합 예:** RED-06은 U-IN-02~05를 한 커밋에 넣을 수 있으나, **1 RED 묶음 = 1 커밋** 원칙을 우선한다.
+
+### 12.4 RED 단계에서 건드리지 않는 것
+
+| 대상 | RED | REFACTOR |
+|------|-----|----------|
+| `unit_converter/` 패키지 생성 | ❌ | ✅ |
+| `UnitConverter.py` 리팩터 | ❌ (또는 GREEN 최소 수정만) | ✅ 얇은 main |
+| `config/units.json` | ❌ | ✅ |
+| `docs/*.md` | ✅ SPEC 문서만 | — |
+
+---
+
+## 13. FR/NFR ↔ 개발 단계 매핑
+
+| ID | 요구 | SPEC | RED | GREEN | REFACTOR |
+|----|------|------|-----|-------|----------|
+| FR-01~07 | 기본·비즈니스 | §5 매핑 | D-CNV, U-* TC | 최소 구현 | `domain/`, `application/` |
+| FR-08 | 테스트 검증 | §3 tests/ 구조 | `pytest.fail` TC | assert Green | 패키지 이전 후 회귀 |
+| FR-09~11 | 추가 요구 | §9 config 스키마 | D-CFG, D-REG, U-FMT | 최소 구현 | `infrastructure/`, `formatter.py` |
+| NFR-01 | OCP | §2.2 확장 지점 | — | — | Registry/Formatter Strategy |
+| NFR-02 | SRP | §3 패키지 분리 | — | — | 레이어 적용 |
+| NFR-03~05 | 입력 검증 | §4.2 Validator | U-IN-* RED | Validator 구현 | `validator.py` |
+| NFR-06 | 테스트 가능성 | §7 Track B 선행 | Domain TC 먼저 | mock-free | `test_domain.py` |
+| NFR-07~08 | 설정·CLI | §9, §4.4 | — | — | `config/`, `UnitConverter.py` |

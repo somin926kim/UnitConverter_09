@@ -1,0 +1,37 @@
+---
+description: Unit Converter 프로젝트 단계(SPEC/RED/GREEN/REFACTOR) 및 문서 SSOT
+alwaysApply: true
+---
+
+# Unit Converter — 프로젝트 헌법
+
+## 문서 SSOT
+
+| 문서 | 용도 |
+|------|------|
+| `docs/spec_analysis.md` | 레거시 Gap |
+| `docs/prd_test_traceability.md` | REQ ↔ Test ID (15 TC) |
+| `docs/dual_track_design.md` | Dual Track RED · Gate |
+| `docs/architecture.md` | REFACTOR 목표 패키지 · FR/NFR |
+
+## Dual Track (레이어)
+
+| Track | 레이어 | 패키지(REFACTOR) | TC |
+|-------|--------|------------------|-----|
+| **A** | UI / Boundary | `unit_converter/application/` | `U-*` |
+| **B** | Domain / Logic | `unit_converter/domain/`, `infrastructure/` | `D-*` |
+
+**Track A/B = 레이어 이름.** RED 실행 순서 = **Domain(B) → Boundary(A)**.
+
+## 단계별 코드 허용
+
+| 단계 | `unit_converter/` | `tests/` | `UnitConverter.py` |
+|------|-------------------|----------|-------------------|
+| SPEC | ❌ | ❌ | 레거시 유지 |
+| RED | ❌ | ✅ `pytest.fail` only | ❌ |
+| GREEN | ✅ 최소 | ✅ assert | ✅ 최소 |
+| REFACTOR | ✅ §architecture | ✅ 회귀 | ✅ 얇은 main |
+
+## 커밋 말머리
+
+`[SPEC]` · `[RED]` · `[GREEN]` · `[REFACTOR]` — RED는 **1 묶음 = 1 커밋**.
