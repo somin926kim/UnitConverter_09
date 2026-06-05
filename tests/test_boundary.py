@@ -32,8 +32,9 @@ def test_u_in_03_reject_negative():
 def test_u_in_04_unknown_unit():
     # Given: "mile:1"
     # When: parse/validate input
-    # Then:
-    pytest.fail("RED: U-IN-04 — mile:1 → Unknown unit error")
+    # Then: Unknown unit error
+    with pytest.raises(ValidationError, match="Unknown unit: mile"):
+        validate("mile:1")
 
 
 def test_u_in_05_empty_token():

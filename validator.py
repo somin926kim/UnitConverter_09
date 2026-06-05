@@ -1,5 +1,6 @@
 FORMAT_ERROR = "Invalid format. Use unit:value (ex: meter:2.5)"
 NEGATIVE_ERROR = "Negative values are not allowed"
+KNOWN_UNITS = {"meter", "feet", "yard"}
 
 
 class ValidationError(Exception):
@@ -20,4 +21,7 @@ def validate(input_str: str) -> tuple[str, float]:
     if value < 0:
         raise ValidationError(NEGATIVE_ERROR)
 
-    raise NotImplementedError
+    if unit not in KNOWN_UNITS:
+        raise ValidationError(f"Unknown unit: {unit}")
+
+    return unit, value
