@@ -24,8 +24,9 @@ def test_u_in_02_no_colon():
 def test_u_in_03_reject_negative():
     # Given: "meter:-1"
     # When: parse/validate input
-    # Then:
-    pytest.fail("RED: U-IN-03 — meter:-1 → Reject negative values")
+    # Then: Reject negative values
+    with pytest.raises(ValidationError, match="Negative"):
+        validate("meter:-1")
 
 
 def test_u_in_04_unknown_unit():
