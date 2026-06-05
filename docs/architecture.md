@@ -1,6 +1,7 @@
 # Architecture — 목표 패키지 구조 (SPEC)
 
-> **단계:** SPEC (설계만) · **적용 시점:** REFACTOR  
+> **단계:** SPEC (설계만)  
+> **적용 시점:** RED(테스트만) → GREEN → **REFACTOR**(본 문서의 패키지 구조)  
 > **기준 문서:** `README.md`  
 > **관련 SPEC:** `spec_analysis.md`, `prd_test_traceability.md`, `dual_track_design.md`  
 > **작성 일자:** 2026-06-05
@@ -9,8 +10,15 @@
 
 ## 1. 문서 목적
 
-본 문서는 **REFACTOR 단계에서 적용할 목표 Python 패키지 구조**를 정의한다.  
-현재 레거시 `UnitConverter.py`(단일 `main()`)를 OCP/SRP를 만족하는 구조로 전환하기 위한 **설계 명세**이며, **코드 변경은 포함하지 않는다.**
+본 문서는 **REFACTOR 단계에서 적용할 목표 Python 패키지 구조**와 **PRD FR/NFR 매핑**을 정의한다.  
+현재 레거시 `UnitConverter.py`(단일 `main()`)를 OCP/SRP를 만족하는 구조로 전환하기 위한 **설계 명세**이다.
+
+| 개발 단계 | 본 문서와의 관계 | 프로덕션 코드 (`unit_converter/`) | 테스트 코드 |
+|-----------|------------------|-----------------------------------|-------------|
+| **SPEC** *(현재)* | 구조·FR/NFR·규칙 **문서화만** | ❌ 작성 금지 | ❌ 작성 금지 |
+| **RED** | §12 규칙에 따라 TC만 추가 | ❌ **구현 금지** | ✅ `pytest.fail("RED: ...")` |
+| **GREEN** | 최소 구현으로 TC 통과 | ✅ 최소 구현 허용 | ✅ assert 통과 |
+| **REFACTOR** | §3~§8 패키지 구조 **적용** | ✅ OCP/SRP 구조로 이전 | ✅ 유지·회귀 |
 
 | 현재 (AS-IS) | 목표 (TO-BE) |
 |--------------|--------------|
@@ -264,12 +272,29 @@ README **품질 요구사항 · Overview 설계 목표**에서 도출.
 
 ---
 
-## 8. REFACTOR 단계 적용 순서
+## 8. 개발 단계별 적용 순서
 
-SPEC 단계에서는 **구현하지 않는다.** REFACTOR 시 아래 순서로 적용.
+### 8.1 RED → GREEN → REFACTOR (전체 흐름)
 
 ```
-Step 0  tests/ RED 작성 (D-CNV → U-IN → U-OUT)
+SPEC (현재)
+  └─ docs/architecture.md — 구조·FR/NFR·RED 규칙 확정
+       │
+RED
+  └─ tests/ 만 추가 · pytest.fail · 1 묶음 = 1 커밋
+       │
+GREEN
+  └─ 최소 구현 (레거시 수정 또는 임시 모듈) · TC 통과
+       │
+REFACTOR
+  └─ §3 패키지 구조로 이전 · Converter 무변경 유지 (OCP)
+```
+
+### 8.2 REFACTOR 단계 — 패키지 적용 순서
+
+SPEC·RED 단계에서는 **`unit_converter/` 패키지를 만들지 않는다.** REFACTOR 시 아래 순서로 적용.
+
+```
 Step 1  domain/models.py, registry.py, converter.py, exceptions.py
 Step 2  application/parser.py, validator.py, service.py
 Step 3  UnitConverter.py → 얇은 main으로 교체
@@ -280,7 +305,7 @@ Step 6  application/formatter.py (JsonFormatter → Csv/Table)
         ── Gate 2 (Phase 2 TC 15 Green) ──
 ```
 
-### 8.1 레거시 → 목표 마이그레이션
+### 8.3 레거시 → 목표 마이그레이션
 
 | 레거시 (`UnitConverter.py`) | REFACTOR 후 |
 |-----------------------------|-------------|
@@ -330,9 +355,93 @@ REFACTOR 완료 시 아래를 확인한다.
 
 ## 11. 참고 문서
 
-| 문서 | 역할 |
-|------|------|
+| 문서 / 경로 | 역할 |
+|-------------|------|
 | `docs/spec_analysis.md` | AS-IS Gap · 레거시 스멜 |
 | `docs/prd_test_traceability.md` | REQ ↔ Test ID |
 | `docs/dual_track_design.md` | Dual Track RED · Gate |
-| `docs/architecture.md` | **본 문서** — REFACTOR 목표 패키지 · FR/NFR 매핑 |
+| `docs/architecture.md` | **본 문서** — REFACTOR 목표 패키지 · FR/NFR |
+| `.cursor/rules/` | SPEC/RED/REFACTOR Agent 규칙 |
+| `.cursor/skills/unit-converter-tdd/` | TDD 절차 SSOT |
+| `.cursor/commands/` | `/tdd-red`, `/tdd-green`, `/spec-only` |
+
+---
+
+## 12. RED 단계 규칙
+
+REFACTOR 이전 RED 단계에서 **반드시** 지킬 규칙이다.  
+**Agent 실행 SSOT:** `.cursor/rules/unit-converter-red.mdc` · `/tdd-red` · `.cursor/skills/unit-converter-tdd/`
+
+### 12.1 금지·허용
+
+| 규칙 | 내용 |
+|------|------|
+| ❌ **구현 코드 작성 금지** | `unit_converter/` 패키지, `Converter` 본체, `Parser` 로직 등 **프로덕션 구현 불가** |
+| ✅ **`pytest.fail` 허용** | 실패를 명시적으로 표현 |
+| ❌ **`skip` / `xfail` 금지** | RED를 우회하지 않음 |
+| ✅ **1 RED 묶음 = 1 커밋** | TC 단위 또는 논리 묶음 단위로 커밋 분리 |
+
+### 12.2 RED 테스트 작성 예시 *(RED 단계에서만 허용되는 코드)*
+
+```python
+# tests/test_domain.py — RED 단계 (구현 없음)
+import pytest
+
+def test_d_cnv_01_to_meter_feet():
+    pytest.fail("RED: D-CNV-01 — 1 feet → 0.3048 m (±ε)")
+```
+
+```python
+# tests/test_boundary.py — RED 단계
+import pytest
+
+def test_u_in_03_reject_negative():
+    pytest.fail("RED: U-IN-03 — meter:-1 must be rejected")
+```
+
+> GREEN 단계에서 위 `pytest.fail`을 **실제 assert**로 교체하고, 그때 최소 구현을 추가한다.
+
+### 12.3 RED 묶음 ↔ 커밋 ↔ 패키지 (목표)
+
+Track B(Domain)를 RED 실행 순서상 **선행**한다. (`dual_track_design.md` §1)
+
+| RED 묶음 | 커밋 예시 메시지 | Test ID | 목표 모듈 (REFACTOR 시) | Phase |
+|----------|------------------|---------|-------------------------|-------|
+| RED-01 | `[RED] D-CNV-01 to_meter` | D-CNV-01 | `domain/converter.py` | 1 |
+| RED-02 | `[RED] D-CNV-02 convert_all feet` | D-CNV-02 | `domain/converter.py` | 1 |
+| RED-03 | `[RED] D-CNV-03 feet-yard consistency` | D-CNV-03 | `domain/converter.py` | 1 |
+| RED-04 | `[RED] D-CNV-04 convert_all yard` | D-CNV-04 | `domain/converter.py` | 1 |
+| RED-05 | `[RED] U-IN-01 empty input` | U-IN-01 | `application/validator.py` | 1 |
+| RED-06 | `[RED] U-IN-02~05 validation` | U-IN-02~05 | `application/parser.py`, `validator.py` | 1 |
+| RED-07 | `[RED] U-OUT-01 output skeleton` | U-OUT-01 | `application/service.py` | 1 |
+| RED-08 | `[RED] D-CFG-01 corrupted json` | D-CFG-01 | `infrastructure/config_loader.py` | 2 |
+| RED-09 | `[RED] D-CFG-02 load units.json` | D-CFG-02 | `infrastructure/config_loader.py` | 2 |
+| RED-10 | `[RED] D-REG-01 register cubit` | D-REG-01 | `domain/registry.py` | 2 |
+| RED-11 | `[RED] D-REG-02 cubit cross-convert` | D-REG-02 | `domain/registry.py` | 2 |
+| RED-12 | `[RED] U-FMT-01 json output` | U-FMT-01 | `application/formatter.py` | 2 |
+
+**묶음 통합 예:** RED-06은 U-IN-02~05를 한 커밋에 넣을 수 있으나, **1 RED 묶음 = 1 커밋** 원칙을 우선한다.
+
+### 12.4 RED 단계에서 건드리지 않는 것
+
+| 대상 | RED | REFACTOR |
+|------|-----|----------|
+| `unit_converter/` 패키지 생성 | ❌ | ✅ |
+| `UnitConverter.py` 리팩터 | ❌ (또는 GREEN 최소 수정만) | ✅ 얇은 main |
+| `config/units.json` | ❌ | ✅ |
+| `docs/*.md` | ✅ SPEC 문서만 | — |
+
+---
+
+## 13. FR/NFR ↔ 개발 단계 매핑
+
+| ID | 요구 | SPEC | RED | GREEN | REFACTOR |
+|----|------|------|-----|-------|----------|
+| FR-01~07 | 기본·비즈니스 | §5 매핑 | D-CNV, U-* TC | 최소 구현 | `domain/`, `application/` |
+| FR-08 | 테스트 검증 | §3 tests/ 구조 | `pytest.fail` TC | assert Green | 패키지 이전 후 회귀 |
+| FR-09~11 | 추가 요구 | §9 config 스키마 | D-CFG, D-REG, U-FMT | 최소 구현 | `infrastructure/`, `formatter.py` |
+| NFR-01 | OCP | §2.2 확장 지점 | — | — | Registry/Formatter Strategy |
+| NFR-02 | SRP | §3 패키지 분리 | — | — | 레이어 적용 |
+| NFR-03~05 | 입력 검증 | §4.2 Validator | U-IN-* RED | Validator 구현 | `validator.py` |
+| NFR-06 | 테스트 가능성 | §7 Track B 선행 | Domain TC 먼저 | mock-free | `test_domain.py` |
+| NFR-07~08 | 설정·CLI | §9, §4.4 | — | — | `config/`, `UnitConverter.py` |
