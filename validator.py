@@ -6,6 +6,6 @@ class ValidationError(Exception):
 
 
 def validate(input_str: str) -> tuple[str, float]:
-    if not input_str:
+    if not input_str or ":" not in input_str:
         raise ValidationError(FORMAT_ERROR)
     raise NotImplementedError

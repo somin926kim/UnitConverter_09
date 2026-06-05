@@ -16,8 +16,9 @@ def test_u_in_01_empty_input():
 def test_u_in_02_no_colon():
     # Given: "meter" (콜론 없음)
     # When: parse/validate input
-    # Then:
-    pytest.fail("RED: U-IN-02 — meter → Format error (콜론 없음)")
+    # Then: Format error (콜론 없음)
+    with pytest.raises(ValidationError, match="Invalid format"):
+        validate("meter")
 
 
 def test_u_in_03_reject_negative():
