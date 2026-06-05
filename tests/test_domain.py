@@ -2,7 +2,7 @@
 
 import pytest
 
-from converter import to_meter
+from converter import convert_all, to_meter
 
 
 def test_d_cnv_01_to_meter_feet():
@@ -16,8 +16,9 @@ def test_d_cnv_01_to_meter_feet():
 def test_d_cnv_02_convert_all_feet():
     # Given: 2.5 meter
     # When: convert_all("meter", 2.5)
-    # Then:
-    pytest.fail("RED: D-CNV-02 — 2.5 m → 8.20210 ft (소수 5자리)")
+    result = convert_all("meter", 2.5)
+    # Then: 8.20210 ft (소수 5자리)
+    assert result["feet"] == pytest.approx(8.20210, abs=1e-5)
 
 
 def test_d_cnv_03_feet_yard_consistency():
