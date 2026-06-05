@@ -37,11 +37,19 @@ def test_u_in_04_unknown_unit():
         validate("mile:1")
 
 
-def test_u_in_05_empty_token():
+@pytest.mark.parametrize(
+    "input_str",
+    [
+        pytest.param(":2.5", id="empty_unit"),
+        pytest.param("meter:", id="empty_value"),
+    ],
+)
+def test_u_in_05_empty_token(input_str):
     # Given: ":2.5" or "meter:"
     # When: parse/validate input
-    # Then:
-    pytest.fail("RED: U-IN-05 — :2.5 / meter: → Format error (빈 토큰)")
+    # Then: Format error (빈 토큰)
+    with pytest.raises(ValidationError, match="Invalid format"):
+        validate(input_str)
 
 
 def test_u_out_01_meter_stdout():

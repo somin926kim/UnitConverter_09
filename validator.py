@@ -13,6 +13,9 @@ def validate(input_str: str) -> tuple[str, float]:
 
     unit, value_str = input_str.split(":", 1)
 
+    if not unit or not value_str:
+        raise ValidationError(FORMAT_ERROR)
+
     try:
         value = float(value_str)
     except ValueError:
