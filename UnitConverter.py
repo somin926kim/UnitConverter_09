@@ -9,14 +9,13 @@ def process(input_str: str) -> list[str]:
 
 
 def main():
-    input_str = input("Insert value for converting (ex: meter:2.5): ")
+    service = build_default_service()
+    raw = input("Insert value for converting (ex: meter:2.5): ")
     try:
-        lines = process(input_str)
+        for line in service.run(raw):
+            print(line)
     except ValidationError as e:
         print(e.args[0])
-        return
-    for line in lines:
-        print(line)
 
 
 if __name__ == "__main__":
