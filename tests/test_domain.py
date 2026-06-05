@@ -33,5 +33,6 @@ def test_d_cnv_03_feet_yard_consistency():
 def test_d_cnv_04_convert_all_yard():
     # Given: 2.5 meter
     # When: convert_all("meter", 2.5)
-    # Then:
-    pytest.fail("RED: D-CNV-04 — 2.5 m → 2.73403 yard (소수 5자리)")
+    result = convert_all("meter", 2.5)
+    # Then: 2.73403 yard (소수 5자리)
+    assert result["yard"] == pytest.approx(2.73403, abs=1e-5)
