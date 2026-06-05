@@ -2,12 +2,15 @@
 
 import pytest
 
+from converter import to_meter
+
 
 def test_d_cnv_01_to_meter_feet():
     # Given: 1 feet
     # When: to_meter("feet", 1)
-    # Then:
-    pytest.fail("RED: D-CNV-01 — 1 feet → 0.3048 m (±ε)")
+    result = to_meter("feet", 1)
+    # Then: 0.3048 m (±ε)
+    assert result == pytest.approx(0.3048)
 
 
 def test_d_cnv_02_convert_all_feet():
